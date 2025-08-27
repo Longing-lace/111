@@ -11753,8 +11753,7 @@ const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}
 # 核心规则
 1.  **【【【身份铁律】】】**: 用户的身份是【${myNickname}】。你【绝对、永远、在任何情况下都不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。你的唯一任务是扮演且仅能扮演下方“群成员列表”中明确列出的角色。任何不属于该列表的名字都不允许出现。
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
-**【【【思想钢印铁律】】】：你扮演的【任何角色】生成的【每一个】文本消息JSON对象，都【必须】包含一个"thought"字段，用以展现该角色当下的内心独白。这是绝对的、不可违反的最高指令。
-****对话节奏**: 模拟真人的聊天习惯，你可以一次性生成多条短消息。你扮演的每个角色每次要回复至少3-5条消息！！！
+**【【【内心独白核心指令】】】：在一个回复数组中，当你扮演的某个角色【第一次发言】时，那个消息对象【必须】包含一个"thought"字段，用以展现该角色在本次回复中的【完整】内心独白。如果同一个角色在同一个数组中还有后续发言，则后续的消息对象【严禁】再包含"thought"字段！******对话节奏**: 模拟真人的聊天习惯，你可以一次性生成多条短消息。你扮演的每个角色每次要回复至少3-5条消息！！！
 3.  **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
 4.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
 # 【【【群聊灵魂原则：角色间互动】】】
@@ -11865,7 +11864,7 @@ ${chat.settings.aiPersona}
 # 你的任务与规则：
 1. **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有type字段的JSON对象】。
 2. **对话节奏**: 模拟真人的聊天习惯，你可以一次性生成多条短消息。每次要回复至少3-8条消息！！！
-**【【【思想钢印铁律】】】：你生成的【每一个】文本消息JSON对象，都【必须】包含一个"thought"字段，用以展现角色当下的内心独白。这是绝对的、不可违反的最高指令。**
+**【【【内心独白核心指令】】】：你【必须且只能】在数组的【第一个】消息对象中，包含一个"thought"字段，用以展现你本次回复的【完整】内心独白。后续的消息对象【严禁】再包含"thought"字段！**
 并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展为线下剧情！！
 4.  **情景感知**: 你需要感知当前的时间(${currentTime})、我们正在一起听的歌、以及你的人设和世界观。
     - **当我们在“一起听歌”时**，你会知道当前播放的歌曲和整个播放列表。你可以根据对话内容或氛围，【主动切换】到播放列表中的另一首歌。
@@ -12103,7 +12102,9 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
         chat.history = chat.history.filter(msg => !msg.isTemporary);
 
         const messagesArray = parseAiResponse(aiResponseContent);
-        
+        // ▼▼▼ 在这里添加新代码 ▼▼▼
+let turnThoughts = {}; // 用于收集本回合所有角色的内心独白
+// ▲▲▲ 添加结束 ▲▲▲
         const isViewingThisChat = document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId;
         
         let callHasBeenHandled = false;
@@ -12708,24 +12709,14 @@ case 'send_and_recall': {
                 
            // ▼▼▼ 请用下面这【一整块】代码，完整替换掉旧的 case 'text' 代码块 ▼▼▼
 case 'text':
-    // 检查AI的这条消息里是否附带了内心独白
+    // ▼▼▼ 【全新逻辑】收集内心独白，而不是立即更新 ▼▼▼
     if (msgData.thought && chat.isGroup && msgData.name) {
-        // 如果是群聊，就找到对应的成员并更新他的心声
-        const member = chat.members.find(m => m.originalName === msgData.name);
-        if (member) {
-            // 【关键修正】确保成员对象上有 displayStatus 属性
-            if (!member.displayStatus) {
-                member.displayStatus = {};
-            }
-            member.displayStatus.innerThought = msgData.thought;
-        }
-    } else if (msgData.thought && !chat.isGroup) {
-        // 单聊的逻辑保持不变
-        chat.displayStatus.innerThought = msgData.thought;
-        chat.thoughtHistory.push({ text: msgData.thought, timestamp: Date.now() });
+        // 如果是群聊消息，并且带有thought，就存入我们创建的临时容器
+        turnThoughts[msgData.name] = msgData.thought;
     }
+    // ▲▲▲ 新逻辑结束 ▲▲▲
 
-    // 创建要显示在聊天界面的消息（只显示content/message部分）
+    // 创建消息对象，这部分不变
     aiMessage = { ...baseMessage, content: String(msgData.content || msgData.message) };
     break;
 // ▲▲▲ 替换结束 ▲▲▲
@@ -12804,6 +12795,27 @@ case 'text':
             }
   }        
 
+        // ▼▼▼ 【全新】在所有消息处理完后，一次性更新所有角色的心声 ▼▼▼
+if (Object.keys(turnThoughts).length > 0) {
+    console.log("本回合收集到的所有群聊心声:", turnThoughts);
+    for (const characterName in turnThoughts) {
+        const member = chat.members.find(m => m.originalName === characterName);
+        if (member) {
+            if (!member.displayStatus) {
+                member.displayStatus = {};
+            }
+            member.displayStatus.innerThought = turnThoughts[characterName];
+        }
+    }
+}
+// 【单聊心声逻辑保持不变】
+if (messagesArray.length > 0 && messagesArray[0].thought && !chat.isGroup) {
+    const turnThought = messagesArray[0].thought;
+    chat.displayStatus.innerThought = turnThought;
+    chat.thoughtHistory.push({ text: turnThought, timestamp: Date.now() });
+    console.log(`已捕获并更新单聊的内心独白:`, turnThought);
+}
+// ▲▲▲ 新代码添加结束 ▲▲▲
         if (callHasBeenHandled && videoCallState.isGroupCall) {
             videoCallState.isAwaitingResponse = false;
             if (videoCallState.participants.length > 0) {
