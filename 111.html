@@ -707,16 +707,8 @@ body {
     color: #999;
     text-shadow: 0 0 3px rgba(255,255,255,0.6);
     white-space: nowrap; /* 防止时间换行 */
-    margin-bottom: -3px;  /* 从 5px 减小到 2px，使其位置更低 */
+    margin-bottom: 5px;  /* 让它和气泡底部有轻微的对齐偏移，更美观 */
     flex-shrink: 0;      /* 防止被压缩 */
-}
-
-/* 新增：为AI和用户的时间戳分别添加水平微调 */
-.message-wrapper.ai .timestamp {
-    margin-left: -4px; /* 负值会把它向左拉，靠近AI气泡 */
-}
-.message-wrapper.user .timestamp {
-    margin-right: -4px; /* 负值会把它向右拉，靠近用户气泡 */
 }
 
 /* 【新增】模拟时间戳的特殊样式 */
@@ -728,7 +720,7 @@ body {
     border-radius: 16px;                 /* 4. 圆角：可以稍微减小，看起来更精致 */
     font-size: 10px;                     /* (大小)：字体大小，您可以按需修改 */
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); /* 5. 阴影：改为更柔和的淡阴影 */
-    top: 2px; 
+
     /* --- 以下为保持不变的基础样式 --- */
     font-weight: 500;
     text-shadow: none;
@@ -822,29 +814,12 @@ body {
         .sticker-item { position: relative; aspect-ratio: 1 / 1; background-size: contain; background-repeat: no-repeat; background-position: center; cursor: pointer; }
         .sticker-item .delete-btn { display: none; position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; background-color: #AB4D3F; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 14px; cursor: pointer; border: 2px solid white; }
         #input-actions-wrapper { position: static; display: flex; align-items: flex-end; gap: 8px; flex-shrink: 0; }
-#wait-reply-btn {
-    position: static;
-    bottom: auto;
-    right: auto;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: transparent; /* 1. 将背景色设为透明 */
-    backdrop-filter: none;         /* 2. 移除模糊效果 */
-    -webkit-backdrop-filter: none; /* 3. 移除模糊效果 (兼容) */
-    border: none;                  /* 4. 移除边框 */
-    box-shadow: none;              /* 5. 移除阴影 */
-    transition: opacity 0.2s, transform 0.1s;
-    cursor: pointer;
-}        #wait-reply-btn:hover { opacity: 0.8; }
+        #wait-reply-btn { position: static; bottom: auto; right: auto; width: 50px; height: 40px; padding: 0 ; border-radius: 24px; display: flex; align-items: center; justify-content: center; background-color: rgba(255, 255, 255, 0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: opacity 0.2s, transform 0.1s; cursor: pointer;}
+        #wait-reply-btn:hover { opacity: 0.8; }
         #wait-reply-btn:active { transform: scale(0.9); }
 /* ▼▼▼ 用这块代码替换旧的 #wait-reply-btn img 样式 ▼▼▼ */
 #wait-reply-btn img {
-    height: 35px; /* 您可以按需调整这个数值，比如 28px 或 32px */
+    height: 45px; /* 您可以按需调整这个数值，比如 28px 或 32px */
 }        .chat-image { max-width: 100%; border-radius: 10px; display: block; }
         .message-bubble.has-image .content { padding: 5px; }
         #custom-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.2s ease-in-out; }
@@ -8637,7 +8612,6 @@ input:checked + .slider:before {
     color: white;
     font-weight: bold;
     font-size: 18px;
-    flex-shrink: 0; /* 新增此行防止被压缩 */
 }
 
 .wechat-chat-info {
@@ -9059,7 +9033,6 @@ input:checked + .slider:before {
     transform: scale(1.5); /* 将图标放大25%，你可以调整这个数值 */
     transition: transform 0.2s ease; /* (可选)增加一个平滑的过渡效果 */
 }
-
   </style>
 </head>
 <body>
@@ -9463,7 +9436,7 @@ input:checked + .slider:before {
         </svg>
     </button>
     <div id="input-actions-wrapper">
-        <button id="wait-reply-btn" title="等待回复"><img src="https://i.postimg.cc/hjkGB1Yz/66424753ch46672e554ee2d87c2031f5.png" alt="等待回复"></button>
+        <button id="wait-reply-btn" title="等待回复"><img src="https://i.postimg.cc/BvT2N8SK/7c37924a1jc64c15a20bfb0d3206ae5c.png" alt="等待回复"></button>
         <button id="send-btn" class="action-button">发送</button>
     </div>
 </div>
@@ -15402,27 +15375,26 @@ if (msg.quote) {
     wrapper.appendChild(bubble);
     wrapper.appendChild(timestampEl);
     
-    
     // 【全新】在时间戳后添加红色圆形感叹号（如果需要）
     if (shouldShowWarning) {
         const warningIcon = document.createElement('span');
         warningIcon.textContent = '!';
         warningIcon.style.cssText = `
             display: inline-block;
-            width: 18px;                  /* 从 14px 变大到 16px */
-            height: 18px;                 /* 从 14px 变大到 16px */
-            background-color: #AB4D3F;    /* 改为饱和度更低的红色 */
+            width: 14px;
+            height: 14px;
+            background-color: #dc3545;
             color: white;
             border-radius: 50%;
             text-align: center;
-            line-height: 18px;            /* 配合尺寸变大，保持垂直居中 */
-            font-size: 12px;              /* 感叹号字体变大 */
+            line-height: 14px;
+            font-size: 10px;
             font-weight: bold;
-            margin-left: -4px;             /* 从 4px 减小到 2px，更靠近气泡 */
+            margin-left: 4px;
             vertical-align: middle;
             flex-shrink: 0;
-            position: relative;
-            top: -8px;                    /* 调整垂直位置，使其更居中 */
+            position: relative; /* <-- 新增这一行 */
+            top: -7px;          /* <-- 新增这一行，向上移动3像素 */
         `;
         warningIcon.title = '此消息发送时处于被拉黑状态';
         wrapper.appendChild(warningIcon);
@@ -22756,21 +22728,10 @@ if (minutes < 2) {
     }
 }
 
-// 【全新功能】在这里检查是否存在上一条被拒绝的申请理由
-let previousReasonContext = '';
-if (chat.relationship.previousApplicationReason) {
-    previousReasonContext = `
-# 【重要参考：你上次失败的申请】
-你上一次的好友申请被用户拒绝了。这是你当时发送的申请理由：
-“${chat.relationship.previousApplicationReason}”
-请深刻反思为什么这个理由没有成功，并构思一个【全新的、更有诚意的】申请理由。不要重复上次的话。
-`;
-}
-
 const systemPrompt = `
 # 你的任务
 你现在是角色“${chat.name}”。你之前被用户（你的聊天对象）拉黑了，现在你非常希望能够和好。请你仔细分析下面的信息，然后思考一个真诚的、符合你人设、并且【针对具体事件】的申请理由。
-${previousReasonContext}
+
 # 关键情景信息
 - 你大约在【${timeDifferenceString}】被用户拉黑了。
 
@@ -22833,15 +22794,6 @@ ${contextSummary}
             // --- 【修正结束】 ---
 
         if (responseObj.decision === 'apply' && responseObj.reason) {
-            // 【全新功能】创建一条对AI可见的隐藏消息，记录它自己发送的申请内容
-            const hiddenApplicationMemory = {
-                role: 'system', // 使用 'system' 角色
-                content: `[系统提示：你刚刚向用户发送了一条好友申请，申请理由是：“${responseObj.reason}”。用户现在会看到这个申请并决定是否同意。]`,
-                timestamp: Date.now(),
-                isHidden: true // 核心：这条消息对用户不可见
-            };
-            chat.history.push(hiddenApplicationMemory);
-
             chat.relationship.status = 'pending_user_approval';
             chat.relationship.applicationReason = responseObj.reason;
             
@@ -27602,16 +27554,12 @@ document.getElementById('chat-lock-overlay').addEventListener('click', async (e)
         triggerAiResponse();
     }
     else if (e.target.id === 'reject-friend-btn') {
-        // 【全新功能】在这里保存被拒绝的申请理由
-        if (chat.relationship.applicationReason) {
-            chat.relationship.previousApplicationReason = chat.relationship.applicationReason;
-        }
-        
         chat.relationship.status = 'blocked_by_user';
         chat.relationship.blockedTimestamp = Date.now();
         chat.relationship.applicationReason = '';
         await db.chats.put(chat);
-        await triggerActiveReply(chat, 0); 
+        // ▼▼▼ 在这里添加下面这行代码 ▼▼▼
+        await triggerActiveReply(chat, 0); // 核心修改：立即触发AI的“被拉黑后”行为
         renderChatInterface(chat.id);
     }
     // 【新增】处理申请好友按钮的点击事件
