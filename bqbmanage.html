@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>表情包筛选管理大师 V2.7 (增强兼容版)</title>
+    <title>表情包筛选管理大师 V2.9 (逻辑修正)</title>
     <style>
         /* [CSS样式与上一版完全相同，此处省略以节省篇幅] */
         body {
@@ -111,11 +111,23 @@
             border-radius: 4px;
             margin-bottom: 10px;
         }
-        .image-card .caption {
-            font-size: 14px;
+        .caption-block {
             margin-bottom: 10px;
-            word-wrap: break-word;
             flex-grow: 1;
+        }
+        .caption-input {
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid transparent;
+            text-align: center;
+            font-size: 14px;
+            padding: 4px 0;
+            transition: border-color 0.3s, background-color 0.3s;
+        }
+        .caption-input:focus {
+            outline: none;
+            border-bottom: 1px solid #007bff;
+            background-color: #f8f9fa;
         }
         .image-card .delete-btn {
             background-color: #ff4d4d;
@@ -135,7 +147,8 @@
             color: #e74c3c;
             font-weight: bold;
             font-size: 12px;
-            margin-left: 4px;
+            display: block;
+            margin-top: 4px;
         }
         .group-container {
             width: 100%;
@@ -153,22 +166,22 @@
 <body>
 
     <div class="container">
-        <h1>表情包筛选管理大师 V2.7 (增强兼容版)</h1>
+        <h1>表情包筛选管理大师 V2.9 (逻辑修正)</h1>
 
         <div class="input-section">
             <h2>步骤 1: 输入信息</h2>
             <div class="input-group">
-                <label for="prefixInput">图片链接前缀 (例如: https://i.postimg.cc/)</label>
-                <input type="text" id="prefixInput" placeholder="请在此处粘贴链接前缀">
+                <label for="prefixInput">图片链接前缀 (用于 "含义+后缀" 格式，可留空)</label>
+                <input type="text" id="prefixInput" placeholder="例如: https://i.postimg.cc/">
             </div>
             <div class="input-group">
-                <label for="imageInfoInput">图片信息列表 (格式: 中文解释图片后缀.ext)</label>
-                <textarea id="imageInfoInput" placeholder="在此处粘贴您的图片信息列表，每行一个。例如：&#10;吃饭Hn0HNHNp/image.gif&#10;呆8582g9Ms/image.png"></textarea>
+                <label for="imageInfoInput">图片信息列表 (支持两种格式混输)</label>
+                <textarea id="imageInfoInput" placeholder="可输入: &#10;吃饭Hn0HNHNp/image.gif (需配合上面的前缀)&#10;或&#10;https://files.catbox.moe/2j7j11.jpeg (完整URL，无需前缀)"></textarea>
             </div>
             <button id="generateBtn" class="btn">生成图片</button>
         </div>
         <div class="display-section">
-            <h2>步骤 2: 预览、筛选和删除</h2>
+            <h2>步骤 2: 预览、添加含义和删除</h2>
             <div id="imageContainer"></div>
         </div>
         <div class="export-section">
@@ -176,7 +189,7 @@
             <button id="exportBtn" class="btn btn-success">导出为 .txt 文件</button>
             <div class="input-group" style="margin-top: 15px;">
                 <label for="exportOutput">导出内容预览</label>
-                <textarea id="exportOutput" readonly placeholder="点击导出按钮后，结果将在此预览，并会自动下载 .txt 文件。"></textarea>
+                <textarea id="exportOutput" readonly placeholder="点击导出按钮后，您在上方编辑的最新含义将在此处组合并预览。"></textarea>
             </div>
         </div>
     </div>
@@ -194,89 +207,123 @@
                 const prefix = prefixInput.value.trim();
                 const infoText = imageInfoInput.value.trim();
 
-                if (!prefix || !infoText) {
-                    alert('请确保前缀和图片信息都已填写！');
+                if (!infoText) {
+                    alert('请输入图片信息列表！');
                     return;
                 }
 
-                imageContainer.innerHTML = '<h2>正在分析并分组中，请稍候...</h2>';
+                imageContainer.innerHTML = '<h2>正在智能解析并分组中，请稍候...</h2>';
                 exportOutput.value = '';
 
                 const lines = infoText.split('\n').filter(line => line.trim() !== '');
                 
-                // 核心改动：在正则表达式中加入了对斜杠 / 的支持
-                const regex = /^(.*?)([a-zA-Z0-9/]+\.\w+)$/;
+                const regexIsFullUrl = /^https?:\/\//i;
+                const regexMeaningSuffix = /^(.*?)([a-zA-Z0-9/]+\.\w+)$/;
                 
-                if (lines.length === 0) {
-                    imageContainer.innerHTML = '<p>没有有效的图片信息。</p>';
-                    return;
-                }
-                
-                const meaningGroups = new Map();
-                const orderedMeanings = []; 
+                // 阶段一：智能解析
+                const processedItems = [];
+                let missingPrefixError = false;
 
                 lines.forEach(line => {
                     const cleanLine = line.trim();
-                    const match = cleanLine.match(regex);
-                    if (match) {
-                        const caption = (match[1] || '').trim();
-                        const filename = match[2];
-                        const item = { filename, originalLine: cleanLine };
-
-                        if (!meaningGroups.has(caption)) {
-                            meaningGroups.set(caption, []);
-                            orderedMeanings.push(caption);
+                    if (regexIsFullUrl.test(cleanLine)) {
+                        try {
+                            const url = new URL(cleanLine);
+                            // 修正：确保能正确处理catbox这类没有深层路径的URL
+                            const suffix = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+                            processedItems.push({ caption: '', suffix: suffix, fullUrl: cleanLine });
+                        } catch (e) {
+                            console.warn(`无效的URL: "${cleanLine}"`, e);
                         }
-                        meaningGroups.get(caption).push(item);
                     } else {
-                        // 增加一个友好的提示，告诉用户哪一行格式不对
-                        console.warn(`无法解析此行，格式可能不正确: "${cleanLine}"`);
+                        const matchMeaning = cleanLine.match(regexMeaningSuffix);
+                        if (matchMeaning) {
+                            if (!prefix) {
+                                missingPrefixError = true;
+                                return;
+                            }
+                            const caption = (matchMeaning[1] || '').trim();
+                            const suffix = matchMeaning[2];
+                            processedItems.push({ caption: caption, suffix: suffix, fullUrl: prefix + suffix });
+                        } else {
+                            console.warn(`无法解析此行: "${cleanLine}"`);
+                        }
                     }
                 });
 
+                if (missingPrefixError) {
+                    alert('检测到 "含义+后缀" 格式的输入，但您没有填写 "图片链接前缀"！请填写后再试。');
+                    imageContainer.innerHTML = '';
+                    return;
+                }
+                
+                if (processedItems.length === 0) {
+                    imageContainer.innerHTML = '<p>没有解析到有效的图片信息。</p>';
+                    return;
+                }
+
+                // 阶段二：分组
+                const meaningGroups = new Map();
+                const orderedMeanings = []; 
+
+                processedItems.forEach(item => {
+                    const { caption, suffix, fullUrl } = item;
+                    if (!meaningGroups.has(caption)) {
+                        meaningGroups.set(caption, []);
+                        orderedMeanings.push(caption); 
+                    }
+                    meaningGroups.get(caption).push({ suffix, fullUrl });
+                });
+
+                // 阶段三：渲染
                 imageContainer.innerHTML = '';
                 const seenSuffixes = new Set();
                 let imageCounter = 0; 
 
                 orderedMeanings.forEach(caption => {
                     const items = meaningGroups.get(caption);
-                    const isGroup = items.length > 1;
+                    const isGroup = items.length > 1 || (caption === ''); 
                     
                     let parentElement = imageContainer;
                     if (isGroup) {
                         const groupContainer = document.createElement('div');
                         groupContainer.className = 'group-container';
+                        if (caption === '') {
+                             groupContainer.innerHTML = '<h3 style="width:100%; margin:0; text-align:left; color:#555;">待添加含义：</h3>';
+                        }
                         imageContainer.appendChild(groupContainer);
                         parentElement = groupContainer;
                     }
 
                     items.forEach((item, index) => {
-                        const { filename, originalLine } = item;
+                        const { suffix, fullUrl } = item;
                         
                         setTimeout(() => {
                             const isFirstInGroup = index === 0;
-                            const isSuffixDup = seenSuffixes.has(filename);
-                            seenSuffixes.add(filename);
+                            const isSuffixDup = seenSuffixes.has(suffix);
+                            seenSuffixes.add(suffix);
 
                             let duplicateMessage = '';
+                            // --- 核心改动在这里 ---
                             if (!isFirstInGroup && isSuffixDup) {
                                 duplicateMessage = ' (含义/后缀均重复)';
-                            } else if (!isFirstInGroup) {
+                            } else if (!isFirstInGroup && caption !== '') { // 增加 caption !== '' 的判断
                                 duplicateMessage = ' (含义重复)';
                             } else if (isSuffixDup) {
                                 duplicateMessage = ' (后缀重复)';
                             }
+                            // --- 核心改动结束 ---
 
-                            const fullUrl = prefix + filename;
                             const card = document.createElement('div');
                             card.className = 'image-card';
-                            card.dataset.exportData = originalLine;
+                            card.dataset.suffix = suffix; 
+                            
                             card.innerHTML = `
-                                <img src="${fullUrl}" alt="${caption}" loading="lazy" onerror="this.parentElement.style.display='none';">
-                                <p class="caption">
-                                    ${caption || '无解释'}
+                                <img src="${fullUrl}" alt="${caption || 'loading...'}" loading="lazy" onerror="this.parentElement.style.display='none';">
+                                <div class="caption-block">
+                                    <input type="text" class="caption-input" placeholder="添加含义..." value="${caption}">
                                     ${duplicateMessage ? `<span class="duplicate-marker">${duplicateMessage}</span>` : ''}
-                                </p>
+                                </div>
                                 <button class="delete-btn">删除</button>
                             `;
                             parentElement.appendChild(card);
@@ -293,7 +340,7 @@
                     if (cardToRemove) {
                         const parent = cardToRemove.parentElement;
                         cardToRemove.remove();
-                        if (parent.classList.contains('group-container') && parent.childElementCount === 0) {
+                        if (parent.classList.contains('group-container') && parent.querySelectorAll('.image-card').length === 0) {
                             parent.remove();
                         }
                     }
@@ -308,7 +355,12 @@
                     return;
                 }
                 
-                const exportLines = Array.from(remainingCards).map(card => card.dataset.exportData);
+                const exportLines = Array.from(remainingCards).map(card => {
+                    const newCaption = card.querySelector('.caption-input').value.trim();
+                    const suffix = card.dataset.suffix;
+                    return newCaption + suffix; 
+                });
+                
                 const exportString = exportLines.join('\n');
                 
                 exportOutput.value = exportString;
