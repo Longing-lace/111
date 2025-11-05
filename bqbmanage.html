@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>表情包筛选管理大师 V2.9 (逻辑修正)</title>
+    <title>表情包筛选管理大师 V3.0 (导出增强)</title>
     <style>
         /* [CSS样式与上一版完全相同，此处省略以节省篇幅] */
         body {
@@ -161,17 +161,28 @@
             flex-wrap: wrap;
             gap: 15px;
         }
+        /* 新增的导出选项样式 */
+        #exportOptions label {
+            display: inline-block;
+            font-weight: normal;
+            margin-right: 15px;
+            cursor: pointer;
+        }
+        #exportOptions input[type="radio"] {
+            margin-right: 5px;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>表情包筛选管理大师 V2.9 (逻辑修正)</h1>
+        <h1>表情包筛选管理大师 V3.0 (导出增强)</h1>
 
         <div class="input-section">
             <h2>步骤 1: 输入信息</h2>
             <div class="input-group">
-                <label for="prefixInput">图片链接前缀 (用于 "含义+后缀" 格式，可留空)</label>
+                <label for="prefixInput">图片链接前缀 (用于 "含义+后缀" 格式，也在 "前缀模式" 导出时使用)</label>
                 <input type="text" id="prefixInput" placeholder="例如: https://i.postimg.cc/">
             </div>
             <div class="input-group">
@@ -186,12 +197,24 @@
         </div>
         <div class="export-section">
             <h2>步骤 3: 导出结果</h2>
-            <button id="exportBtn" class="btn btn-success">导出为 .txt 文件</button>
+
+            <div class="input-group">
+                <label>3.1: 选择导出格式</label>
+                <div id="exportOptions">
+                    <input type="radio" id="exportModeSuffix" name="exportMode" value="suffix" checked>
+                    <label for="exportModeSuffix">含义 + 后缀 (默认)</label>
+                    
+                    <input type="radio" id="exportModePrefix" name="exportMode" value="prefix">
+                    <label for="exportModePrefix">含义 + 前缀 + 后缀 (需填写步骤1的前缀)</label>
+                </div>
+            </div>
+
+            <button id="exportBtn" class="btn btn-success" style="margin-top: 10px;">3.2: 导出为 .txt 文件</button>
             <div class="input-group" style="margin-top: 15px;">
-                <label for="exportOutput">导出内容预览</label>
+                <label for="exportOutput">3.3: 导出内容预览</label>
                 <textarea id="exportOutput" readonly placeholder="点击导出按钮后，您在上方编辑的最新含义将在此处组合并预览。"></textarea>
             </div>
-        </div>
+            </div>
     </div>
 
     <script>
@@ -203,6 +226,7 @@
             const exportBtn = document.getElementById('exportBtn');
             const exportOutput = document.getElementById('exportOutput');
 
+            // generateImages 函数与 v2.9 完全相同，没有改动
             function generateImages() {
                 const prefix = prefixInput.value.trim();
                 const infoText = imageInfoInput.value.trim();
@@ -334,6 +358,7 @@
                 });
             }
             
+            // handleDelete 函数与 v2.9 完全相同，没有改动
             function handleDelete(event) {
                 if (event.target.classList.contains('delete-btn')) {
                     const cardToRemove = event.target.closest('div.image-card');
@@ -347,7 +372,20 @@
                 }
             }
             
+            // *** exportImages 函数是主要修改的地方 ***
             function exportImages() {
+                // 1. 获取选择的导出模式
+                const exportMode = document.querySelector('input[name="exportMode"]:checked').value;
+                // 2. 再次获取步骤1的前缀
+                const prefix = prefixInput.value.trim();
+
+                // 3. 如果选了前缀模式，但前缀为空，则提醒
+                if (exportMode === 'prefix' && !prefix) {
+                    alert('您选择了 "含义 + 前缀 + 后缀" 模式导出，\n但步骤1的 "图片链接前缀" 是空的！\n\n请填写前缀，或改用 "含义 + 后缀" 模式导出。');
+                    exportOutput.value = ''; // 清空预览
+                    return;
+                }
+
                 const remainingCards = imageContainer.querySelectorAll('.image-card');
                 if (remainingCards.length === 0) {
                     alert('没有可导出的图片！');
@@ -355,16 +393,25 @@
                     return;
                 }
                 
+                // 4. 根据选择的模式组合字符串
                 const exportLines = Array.from(remainingCards).map(card => {
                     const newCaption = card.querySelector('.caption-input').value.trim();
                     const suffix = card.dataset.suffix;
-                    return newCaption + suffix; 
+                    
+                    if (exportMode === 'prefix') {
+                        // 模式2：含义 + 前缀 + 后缀
+                        return newCaption + prefix + suffix; 
+                    } else {
+                        // 模式1 (默认)：含义 + 后缀
+                        return newCaption + suffix; 
+                    }
                 });
                 
                 const exportString = exportLines.join('\n');
                 
                 exportOutput.value = exportString;
                 
+                // (后面的下载逻辑不变)
                 const blob = new Blob([exportString], { type: 'text/plain;charset=utf-8' });
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
@@ -378,6 +425,7 @@
                 alert(`成功导出 ${exportLines.length} 张图片信息！\n请检查您的浏览器下载内容。`);
             }
 
+            // 绑定事件
             generateBtn.addEventListener('click', generateImages);
             imageContainer.addEventListener('click', handleDelete);
             exportBtn.addEventListener('click', exportImages);
