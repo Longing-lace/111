@@ -203,9 +203,12 @@
                 <div id="exportOptions">
                     <input type="radio" id="exportModeSuffix" name="exportMode" value="suffix" checked>
                     <label for="exportModeSuffix">含义 + 后缀 (默认)</label>
-                    
+
                     <input type="radio" id="exportModePrefix" name="exportMode" value="prefix">
                     <label for="exportModePrefix">含义 + 前缀 + 后缀 (需填写步骤1的前缀)</label>
+
+                    <input type="radio" id="exportModeFullUrl" name="exportMode" value="fullurl">
+                    <label for="exportModeFullUrl">含义 + 完整链接 (去冒号)</label>
                 </div>
             </div>
 
@@ -243,14 +246,30 @@
                 
                 const regexIsFullUrl = /^https?:\/\//i;
                 const regexMeaningSuffix = /^(.*?)([a-zA-Z0-9/]+\.\w+)$/;
-                
+                // 新增：匹配 "含义:完整URL" 或 "含义:完整URL" (支持中英文冒号)
+                const regexMeaningColonUrl = /^(.+?)[::]+(https?:\/\/.+)$/i;
+
                 // 阶段一：智能解析
                 const processedItems = [];
                 let missingPrefixError = false;
 
                 lines.forEach(line => {
                     const cleanLine = line.trim();
-                    if (regexIsFullUrl.test(cleanLine)) {
+
+                    // 先检查是否是 "含义:URL" 格式
+                    const matchColonUrl = cleanLine.match(regexMeaningColonUrl);
+                    if (matchColonUrl) {
+                        const caption = matchColonUrl[1].trim();
+                        const fullUrl = matchColonUrl[2].trim();
+                        try {
+                            const url = new URL(fullUrl);
+                            const suffix = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+                            processedItems.push({ caption: caption, suffix: suffix, fullUrl: fullUrl });
+                        } catch (e) {
+                            console.warn(`无效的URL: "${fullUrl}"`, e);
+                        }
+                    } else if (regexIsFullUrl.test(cleanLine)) {
+                        // 纯完整URL（没有含义）
                         try {
                             const url = new URL(cleanLine);
                             // 修正：确保能正确处理catbox这类没有深层路径的URL
@@ -260,6 +279,7 @@
                             console.warn(`无效的URL: "${cleanLine}"`, e);
                         }
                     } else {
+                        // 含义+后缀格式
                         const matchMeaning = cleanLine.match(regexMeaningSuffix);
                         if (matchMeaning) {
                             if (!prefix) {
@@ -397,13 +417,17 @@
                 const exportLines = Array.from(remainingCards).map(card => {
                     const newCaption = card.querySelector('.caption-input').value.trim();
                     const suffix = card.dataset.suffix;
-                    
+                    const fullUrl = card.querySelector('img').src;
+
                     if (exportMode === 'prefix') {
                         // 模式2：含义 + 前缀 + 后缀
-                        return newCaption + prefix + suffix; 
+                        return newCaption + prefix + suffix;
+                    } else if (exportMode === 'fullurl') {
+                        // 模式3：含义 + 完整链接 (去冒号)
+                        return newCaption + fullUrl;
                     } else {
                         // 模式1 (默认)：含义 + 后缀
-                        return newCaption + suffix; 
+                        return newCaption + suffix;
                     }
                 });
                 
